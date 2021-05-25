@@ -20,9 +20,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"gomodules.xyz/wait"
 	"k8s.io/klog/v2"
@@ -53,6 +55,39 @@ type KlogWriter struct{}
 func (writer KlogWriter) Write(data []byte) (n int, err error) {
 	klog.InfoDepth(1, string(data))
 	return len(data), nil
+}
+
+// Init initializes logs the way we want for AppsCode codebase.
+func Init(cmd *cobra.Command) {
+	pflag.CommandLine.SetNormalizeFunc(WordSepNormalizeFunc)
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	InitLogs()
+	if cmd == nil {
+		return
+	}
+	if fn := cmd.PersistentPreRunE; fn != nil {
+		cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+			InitKlog(cmd.Flags())
+			return fn(cmd, args)
+		}
+	} else if fn := cmd.PersistentPreRun; fn != nil {
+		cmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+			InitKlog(cmd.Flags())
+			fn(cmd, args)
+		}
+	} else {
+		cmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+			InitKlog(cmd.Flags())
+		}
+	}
+}
+
+// WordSepNormalizeFunc changes all flags that contain "_" separators
+func WordSepNormalizeFunc(f *pflag.FlagSet, name string) pflag.NormalizedName {
+	if strings.Contains(name, "_") {
+		return pflag.NormalizedName(strings.Replace(name, "_", "-", -1))
+	}
+	return pflag.NormalizedName(name)
 }
 
 // InitLogs initializes logs the way we want for kubernetes.
