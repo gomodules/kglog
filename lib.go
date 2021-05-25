@@ -26,6 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"gomodules.xyz/sets"
 	"gomodules.xyz/wait"
 	"k8s.io/klog/v2"
 )
@@ -58,26 +59,46 @@ func (writer KlogWriter) Write(data []byte) (n int, err error) {
 }
 
 // Init initializes logs the way we want for AppsCode codebase.
-func Init(cmd *cobra.Command) {
+func Init(rootCmd *cobra.Command, printFlags bool) {
 	pflag.CommandLine.SetNormalizeFunc(WordSepNormalizeFunc)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	InitLogs()
-	if cmd == nil {
+
+	if rootCmd == nil {
+		// This branch only makes sense if Cobra is NOT used
+		// If Cobra is used, set the rootCmd
+		pflag.Parse()
+		fs := pflag.CommandLine
+		InitKlog(fs)
+		if printFlags {
+			PrintFlags(fs)
+		}
 		return
 	}
-	if fn := cmd.PersistentPreRunE; fn != nil {
-		cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-			InitKlog(cmd.Flags())
+
+	fs := rootCmd.Flags()
+	if fn := rootCmd.PersistentPreRunE; fn != nil {
+		rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+			InitKlog(fs)
+			if printFlags {
+				PrintFlags(fs)
+			}
 			return fn(cmd, args)
 		}
-	} else if fn := cmd.PersistentPreRun; fn != nil {
-		cmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-			InitKlog(cmd.Flags())
+	} else if fn := rootCmd.PersistentPreRun; fn != nil {
+		rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+			InitKlog(fs)
+			if printFlags {
+				PrintFlags(fs)
+			}
 			fn(cmd, args)
 		}
 	} else {
-		cmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-			InitKlog(cmd.Flags())
+		rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+			InitKlog(fs)
+			if printFlags {
+				PrintFlags(fs)
+			}
 		}
 	}
 }
@@ -132,4 +153,22 @@ func GlogSetter(val string) (string, error) {
 		return "", fmt.Errorf("failed set klog.logging.verbosity %s: %v", val, err)
 	}
 	return fmt.Sprintf("successfully set klog.logging.verbosity to %s", val), nil
+}
+
+func PrintFlags(fs *pflag.FlagSet, list ...string) {
+	bl := sets.NewString("secret", "token", "password", "credential")
+	if len(list) > 0 {
+		bl.Insert(list...)
+	}
+	fs.VisitAll(func(flag *pflag.Flag) {
+		name := strings.ToLower(flag.Name)
+		val := flag.Value.String()
+		for _, keyword := range bl.UnsortedList() {
+			if strings.Contains(name, keyword) {
+				val = "***REDACTED***"
+				break
+			}
+		}
+		log.Printf("FLAG: --%s=%q", flag.Name, val)
+	})
 }
