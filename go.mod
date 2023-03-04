@@ -3,10 +3,12 @@ module gomodules.xyz/kglog
 go 1.16
 
 require (
-	github.com/golang/glog v0.0.0-20210429001901-424d2337a529
-	github.com/spf13/cobra v1.1.3
+	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/golang/glog v1.0.0
+	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
-	gomodules.xyz/flags v0.1.0
-	gomodules.xyz/wait v0.0.0-20210218105358-639bd9211545
-	k8s.io/klog/v2 v2.8.0
+	gomodules.xyz/flags v0.1.3
+	gomodules.xyz/sets v0.2.1 // indirect
+	gomodules.xyz/wait v0.2.0
+	k8s.io/klog/v2 v2.80.1
 )
