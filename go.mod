@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/go-logr/logr v1.2.3 // indirect
-	github.com/golang/glog v1.0.0
+	github.com/golang/glog v1.2.4
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	gomodules.xyz/flags v0.1.3
